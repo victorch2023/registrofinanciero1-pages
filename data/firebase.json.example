@@ -1,0 +1,9 @@
+{
+  "apiKey": "AIza...",
+  "authDomain": "tu-proyecto.firebaseapp.com",
+  "projectId": "tu-proyecto",
+  "appId": "1:123456789:web:abc123",
+  "authEmail": "tu@gmail.com",
+  "functionsRegion": "us-central1",
+  "geminiModel": "gemini-2.5-flash"
+}

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Registro financiero</title>
+  <link rel="stylesheet" href="style.css?v=18" />
+</head>
+<body class="locked">
+  <section id="login-gate" class="login-gate">
+    <div class="login-card">
+      <h1>Registro financiero</h1>
+      <p class="login-sub">Inicia sesión con tu usuario de Firebase.</p>
+      <form id="login-form">
+        <label for="login-email">Email</label>
+        <input
+          type="email"
+          id="login-email"
+          name="email"
+          autocomplete="username"
+          placeholder="tu@gmail.com"
+          required
+        />
+        <label for="login-password">Contraseña</label>
+        <input
+          type="password"
+          id="login-password"
+          name="password"
+          autocomplete="current-password"
+          placeholder="Tu contraseña"
+          required
+        />
+        <p id="login-error" class="login-error hidden" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+      <p class="login-foot">Los datos se guardan en Firebase Firestore al instante.</p>
+    </div>
+  </section>
+
+  <div id="app-shell" class="hidden">
+  <header>
+    <div class="header-row">
+      <div class="header-titles">
+        <h1>Registro financiero</h1>
+        <p id="actualizado">Cargando…</p>
+        <p id="app-build" class="app-build" hidden>Build v18</p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-export" id="btn-export-excel">
+        Exportar Excel
+      </button>
+    </div>
+    <p id="export-status" class="export-status hidden" role="status"></p>
+  </header>
+
+  <nav class="dash-nav" role="tablist" aria-label="Sub-dashboards">
+    <button type="button" class="dash-nav-btn" data-view="ingresos" role="tab">Ingresos</button>
+    <button type="button" class="dash-nav-btn active" data-view="egresos" role="tab">Egresos</button>
+    <button type="button" class="dash-nav-btn" data-view="estatus" role="tab">Estatus</button>
+  </nav>
+
+  <div class="period-bar">
+    <label for="period-picker">Mes a consultar</label>
+    <input type="month" id="period-picker" />
+    <span id="period-label" class="period-label"></span>
+  </div>
+
+  <div id="view-egresos" class="view-panel view-egresos">
+  <main>
+    <section class="panel-ingest">
+      <div class="section-head">
+        <h2>Registrar gasto</h2>
+        <p class="hint">Realizado o proyectado. Ej.: «ayer cené en Wong 45 soles comida» o «el viernes pagaré 800 de alquiler».</p>
+      </div>
+      <form id="ingest-nl-form" class="ingest-form ingest-form-nl">
+        <input
+          type="text"
+          id="ingest-text"
+          name="gasto"
+          placeholder="Ej.: ayer cené 45 soles comida · el viernes pagaré alquiler 800"
+          autocomplete="off"
+          required
+        />
+        <button type="submit" class="btn btn-primary" id="btn-ingest-nl">Registrar</button>
+      </form>
+      <p class="ingest-divider">O registro manual</p>
+      <form id="ingest-form" class="ingest-form ingest-form-grid">
+        <input type="date" id="ingest-fecha" required />
+        <input type="number" id="ingest-monto" min="0" step="0.01" placeholder="Monto" required />
+        <select id="ingest-moneda">
+          <option value="PEN">PEN</option>
+          <option value="USD">USD</option>
+        </select>
+        <select id="ingest-categoria" required></select>
+        <input type="text" id="ingest-descripcion" placeholder="Descripción (opcional)" maxlength="200" />
+        <button type="submit" class="btn btn-primary" id="btn-ingest">Registrar</button>
+      </form>
+      <p id="ingest-status" class="ingest-status hidden" role="status"></p>
+    </section>
+
+    <section class="panel-presupuesto-mes" id="panel-presupuesto-mes">
+      <div class="presupuesto-head">
+        <div class="presupuesto-stat presupuesto-stat-real">
+          <span class="presupuesto-label presupuesto-label-titulo">Gastos realizados</span>
+          <span class="presupuesto-monto presupuesto-valor" id="presupuesto-gastado">—</span>
+          <span class="presupuesto-periodo presupuesto-sub" id="presupuesto-periodo"></span>
+        </div>
+        <div class="presupuesto-stat presupuesto-stat-meta">
+          <span class="presupuesto-label presupuesto-label-titulo">Gastos proyectados</span>
+          <span class="presupuesto-monto presupuesto-valor presupuesto-valor-meta" id="eg-proyectado-suma-tipo">—</span>
+          <span class="presupuesto-sub presupuesto-sub-placeholder" aria-hidden="true">&#8203;</span>
+        </div>
+        <div class="presupuesto-stat presupuesto-stat-estado" id="presupuesto-estado-mes">
+          <span class="presupuesto-label presupuesto-label-titulo presupuesto-label-pct">% comparativo</span>
+          <span class="presupuesto-pct presupuesto-valor" id="presupuesto-pct-mes">—</span>
+          <span class="presupuesto-hint presupuesto-sub" id="presupuesto-hint-mes">Define un presupuesto para comparar</span>
+        </div>
+      </div>
+      <div class="progress-track" id="progress-track-mes" aria-hidden="true">
+        <div class="progress-fill" id="progress-fill-mes"></div>
+      </div>
+    </section>
+
+    <section class="panel-tabla-egreso panel-tabla-realizado">
+      <div class="section-head">
+        <h2>Gastos realizados por categoría</h2>
+        <p class="hint">Solo categorías con dinero ya gastado. ✎ renombrar · clic en fila para ver o editar movimientos.</p>
+      </div>
+      <table id="tabla-gastos-realizados" class="tabla-clic">
+        <thead>
+          <tr>
+            <th>Categoría</th>
+            <th>Gastado</th>
+            <th>Mov.</th>
+            <th class="col-acciones-head"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel-tabla-egreso panel-tabla-proyectado">
+      <div class="section-head">
+        <h2>Gastos proyectados por categoría</h2>
+        <p class="hint">Lo que proyectas gastar este mes, pendiente de pagar. ◎ editar monto · ✎ renombrar categoría.</p>
+      </div>
+      <form id="eg-form-proyectado-rapido" class="ingest-form ing-form-esperado-rapido">
+        <select id="eg-proyectado-categoria" required></select>
+        <input type="number" id="eg-proyectado-monto" min="0" step="0.01" placeholder="Monto proyectado (PEN)" required />
+        <button type="submit" class="btn btn-primary btn-sm">Añadir / actualizar</button>
+      </form>
+      <table id="tabla-gastos-proyectados" class="tabla-clic tabla-egreso-proyectado">
+        <thead>
+          <tr>
+            <th>Categoría</th>
+            <th>Proyectado</th>
+            <th>Realizado</th>
+            <th>% ejecutado</th>
+            <th class="col-acciones-head"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel-gestion">
+      <div class="section-head">
+        <h2>Gestionar categorías</h2>
+        <p class="hint">Crea o quita categorías personalizadas. Renombra con ✎ en la tabla.</p>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" id="btn-cat-nueva">+ Nueva</button>
+        <button type="button" class="btn btn-secondary" id="btn-cat-quitar">Quitar vacía</button>
+      </div>
+    </section>
+  </main>
+  </div><!-- #view-egresos -->
+
+  <div id="view-ingresos" class="view-panel view-ingresos hidden" hidden>
+  <main>
+    <section class="panel-ingest panel-ingest-ingreso">
+      <div class="section-head">
+        <h2>Registrar ingreso</h2>
+        <p class="hint">Percibido o esperado. Ej.: «me pagaron 3500 de sueldo hoy» o «me van a pagar 600 de regalías a fin de mes».</p>
+      </div>
+      <form id="ing-ingest-nl-form" class="ingest-form ingest-form-nl">
+        <input type="text" id="ing-ingest-text" name="ingreso" placeholder="Ej.: me pagaron sueldo hoy · me van a pagar regalías a fin de mes" autocomplete="off" required />
+        <button type="submit" class="btn btn-primary btn-ingreso" id="ing-btn-ingest-nl">Registrar</button>
+      </form>
+      <p class="ingest-divider">O registro manual</p>
+      <form id="ing-ingest-form" class="ingest-form ingest-form-grid">
+        <input type="date" id="ing-ingest-fecha" required />
+        <input type="number" id="ing-ingest-monto" min="0" step="0.01" placeholder="Monto" required />
+        <select id="ing-ingest-moneda">
+          <option value="PEN">PEN</option>
+          <option value="USD">USD</option>
+        </select>
+        <select id="ing-ingest-categoria" required></select>
+        <input type="text" id="ing-ingest-descripcion" placeholder="Descripción (opcional)" maxlength="200" />
+        <button type="submit" class="btn btn-primary btn-ingreso" id="ing-btn-ingest">Registrar</button>
+      </form>
+      <p id="ing-ingest-status" class="ingest-status hidden" role="status"></p>
+    </section>
+
+    <section class="panel-presupuesto-mes panel-ingreso-mes" id="ing-panel-presupuesto-mes">
+      <div class="presupuesto-head">
+        <div class="presupuesto-stat presupuesto-stat-real">
+          <span class="presupuesto-label presupuesto-label-titulo">Ingresos percibidos</span>
+          <span class="presupuesto-monto presupuesto-valor" id="ing-presupuesto-gastado">—</span>
+          <span class="presupuesto-periodo presupuesto-sub" id="ing-presupuesto-periodo"></span>
+        </div>
+        <div class="presupuesto-stat presupuesto-stat-meta">
+          <span class="presupuesto-label presupuesto-label-titulo">Ingresos esperados</span>
+          <span class="presupuesto-monto presupuesto-valor presupuesto-valor-meta" id="ing-esperado-suma-tipo">—</span>
+          <span class="presupuesto-sub presupuesto-sub-placeholder" aria-hidden="true">&#8203;</span>
+        </div>
+        <div class="presupuesto-stat presupuesto-stat-estado" id="ing-presupuesto-estado-mes">
+          <span class="presupuesto-label presupuesto-label-titulo presupuesto-label-pct">% comparativo</span>
+          <span class="presupuesto-pct presupuesto-valor" id="ing-presupuesto-pct-mes">—</span>
+          <span class="presupuesto-hint presupuesto-sub" id="ing-presupuesto-hint-mes">Define un ingreso esperado para comparar</span>
+        </div>
+      </div>
+      <div class="progress-track progress-track-ingreso" id="ing-progress-track-mes" aria-hidden="true">
+        <div class="progress-fill progress-fill-ingreso" id="ing-progress-fill-mes"></div>
+      </div>
+    </section>
+
+    <section class="panel-tabla-ingreso panel-tabla-realizado">
+      <div class="section-head">
+        <h2>Ingresos realizados por tipo</h2>
+        <p class="hint">Solo tipos con dinero ya percibido. ✎ renombrar · clic en fila para ver o editar movimientos.</p>
+      </div>
+      <table id="ing-tabla-realizados" class="tabla-clic tabla-ingreso">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Realizado</th>
+            <th>Mov.</th>
+            <th class="col-acciones-head"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel-tabla-ingreso panel-tabla-esperado">
+      <div class="section-head">
+        <h2>Ingresos esperados por tipo</h2>
+        <p class="hint">Lo que proyectas percibir este mes, por categoría. ◎ editar monto · ✎ renombrar tipo.</p>
+      </div>
+      <form id="ing-form-esperado-rapido" class="ingest-form ing-form-esperado-rapido">
+        <select id="ing-esperado-categoria" required></select>
+        <input type="number" id="ing-esperado-monto" min="0" step="0.01" placeholder="Monto esperado (PEN)" required />
+        <button type="submit" class="btn btn-primary btn-ingreso btn-sm">Añadir / actualizar</button>
+      </form>
+      <table id="ing-tabla-esperados" class="tabla-clic tabla-ingreso tabla-ingreso-esperado">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Esperado</th>
+            <th>Realizado</th>
+            <th>% percibido</th>
+            <th class="col-acciones-head"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel-gestion">
+      <div class="section-head">
+        <h2>Gestionar tipos de ingreso</h2>
+        <p class="hint">Crea o quita tipos personalizados. Renombra con ✎ en la tabla.</p>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary btn-ingreso" id="ing-btn-cat-nueva">+ Nuevo tipo</button>
+        <button type="button" class="btn btn-secondary" id="ing-btn-cat-quitar">Quitar vacío</button>
+      </div>
+    </section>
+  </main>
+  </div><!-- #view-ingresos -->
+
+  <div id="view-estatus" class="view-panel view-estatus hidden" hidden>
+  <main class="estatus-main">
+    <section class="estatus-kpis">
+      <article class="estatus-kpi estatus-kpi-ingreso">
+        <span class="estatus-kpi-label">Ingresos del mes</span>
+        <span class="estatus-kpi-value" id="est-kpi-ingresos">—</span>
+      </article>
+      <article class="estatus-kpi estatus-kpi-egreso">
+        <span class="estatus-kpi-label">Egresos del mes</span>
+        <span class="estatus-kpi-value" id="est-kpi-egresos">—</span>
+      </article>
+      <article class="estatus-kpi estatus-kpi-balance" id="est-kpi-balance-card">
+        <span class="estatus-kpi-label">Ahorro / balance</span>
+        <span class="estatus-kpi-value" id="est-kpi-balance">—</span>
+      </article>
+      <article class="estatus-kpi estatus-kpi-presupuesto">
+        <span class="estatus-kpi-label">% presupuesto usado</span>
+        <span class="estatus-kpi-value" id="est-kpi-presupuesto">—</span>
+      </article>
+    </section>
+
+    <section class="estatus-chart-card">
+      <h2>Ingresos vs Egresos</h2>
+      <div class="chart-wrap"><canvas id="chart-ingresos-vs-egresos"></canvas></div>
+    </section>
+
+    <section class="estatus-chart-card">
+      <h2>Egresos por categoría</h2>
+      <div class="chart-wrap chart-wrap-pie"><canvas id="chart-egresos-pastel"></canvas></div>
+    </section>
+
+    <section class="estatus-chart-card">
+      <h2>Presupuesto vs gasto real</h2>
+      <div class="chart-wrap"><canvas id="chart-presupuesto-real"></canvas></div>
+    </section>
+
+    <section class="estatus-chart-card">
+      <h2>Ahorro del mes</h2>
+      <p class="hint estatus-ahorro-hint" id="est-ahorro-hint">Lo que no gastes de tus ingresos queda como ahorro.</p>
+      <div class="chart-wrap chart-wrap-ahorro"><canvas id="chart-ahorro"></canvas></div>
+    </section>
+  </main>
+  </div><!-- #view-estatus -->
+
+  <footer>
+    <p>Dashboard personal · datos en Firebase Firestore</p>
+  </footer>
+
+  <!-- Detalle de gastos por categoría -->
+  <dialog id="modal-detalle" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3 id="modal-detalle-titulo">Categoría</h3>
+        <button type="button" class="btn-close" data-close="modal-detalle" aria-label="Cerrar">×</button>
+      </header>
+      <p id="modal-detalle-resumen" class="modal-meta"></p>
+      <div class="tabla-wrap">
+        <table id="tabla-gastos">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Descripción</th>
+              <th>Monto</th>
+              <th class="col-acciones-head"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p id="modal-detalle-vacio" class="empty hidden">Sin gastos en esta categoría este mes.</p>
+    </div>
+  </dialog>
+
+  <!-- Crear / quitar categoría -->
+  <dialog id="modal-categoria" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3 id="modal-cat-titulo">Categoría</h3>
+        <button type="button" class="btn-close" data-close="modal-categoria" aria-label="Cerrar">×</button>
+      </header>
+      <form id="form-categoria" class="form-cat">
+        <div id="form-campos"></div>
+        <p id="modal-cat-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" data-close="modal-categoria">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-cat-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Editar / eliminar / mover gasto -->
+  <dialog id="modal-editar-gasto" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Editar gasto</h3>
+        <button type="button" class="btn-close" data-close="modal-editar-gasto" aria-label="Cerrar">×</button>
+      </header>
+      <form id="form-editar-gasto" class="form-cat">
+        <input type="hidden" id="edit-gasto-id" />
+        <label>Fecha
+          <input type="date" id="edit-gasto-fecha" required />
+        </label>
+        <label>Monto
+          <input type="number" id="edit-gasto-monto" min="0" step="0.01" required />
+        </label>
+        <label>Moneda
+          <select id="edit-gasto-moneda">
+            <option value="PEN">PEN (soles)</option>
+            <option value="USD">USD (dólares)</option>
+          </select>
+        </label>
+        <label>Descripción
+          <input type="text" id="edit-gasto-descripcion" maxlength="200" />
+        </label>
+
+        <fieldset class="move-categoria-block">
+          <legend>Mover a otra categoría</legend>
+          <p class="move-categoria-actual">
+            Actual: <strong id="edit-gasto-categoria-actual">—</strong>
+          </p>
+          <label for="edit-gasto-mover-categoria">Destino</label>
+          <div class="move-categoria-row">
+            <select id="edit-gasto-mover-categoria" required></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-mover-gasto" disabled>
+              Mover
+            </button>
+          </div>
+          <p class="hint">El gasto desaparecerá de la categoría actual y aparecerá en la nueva.</p>
+        </fieldset>
+
+        <p id="editar-gasto-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-danger" id="btn-eliminar-gasto">Eliminar</button>
+          <button type="button" class="btn btn-secondary" data-close="modal-editar-gasto">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-guardar-gasto">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Presupuesto por categoría -->
+  <dialog id="modal-meta-cat" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Gasto proyectado por categoría</h3>
+        <button type="button" class="btn-close" data-close="modal-meta-cat" aria-label="Cerrar">×</button>
+      </header>
+      <p class="modal-meta">Categoría: <strong id="modal-meta-cat-nombre">—</strong></p>
+      <form id="form-meta-cat" class="form-cat">
+        <label>Monto proyectado del mes (PEN)
+          <input type="number" id="input-meta-cat" min="0" step="0.01" placeholder="Ej. 500" />
+        </label>
+        <p id="meta-cat-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" id="btn-quitar-meta-cat">Quitar proyectado</button>
+          <button type="button" class="btn btn-secondary" data-close="modal-meta-cat">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Renombrar categoría -->
+  <dialog id="modal-renombrar" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Renombrar categoría</h3>
+        <button type="button" class="btn-close" data-close="modal-renombrar" aria-label="Cerrar">×</button>
+      </header>
+      <p class="modal-meta">Actual: <strong id="modal-renombrar-actual">—</strong></p>
+      <form id="form-renombrar" class="form-cat">
+        <label>Nuevo nombre
+          <input type="text" id="input-renombrar-nueva" maxlength="40" required />
+        </label>
+        <p id="renombrar-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" data-close="modal-renombrar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-renombrar-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Detalle ingresos por categoría -->
+  <dialog id="ing-modal-detalle" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3 id="ing-modal-detalle-titulo">Tipo de ingreso</h3>
+        <button type="button" class="btn-close" data-close="ing-modal-detalle" aria-label="Cerrar">×</button>
+      </header>
+      <p id="ing-modal-detalle-resumen" class="modal-meta"></p>
+      <div class="tabla-wrap">
+        <table id="ing-tabla-ingresos">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Descripción</th>
+              <th>Monto</th>
+              <th class="col-acciones-head"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p id="ing-modal-detalle-vacio" class="empty hidden">Sin ingresos en este tipo este mes.</p>
+    </div>
+  </dialog>
+
+  <dialog id="ing-modal-categoria" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3 id="ing-modal-cat-titulo">Tipo de ingreso</h3>
+        <button type="button" class="btn-close" data-close="ing-modal-categoria" aria-label="Cerrar">×</button>
+      </header>
+      <form id="ing-form-categoria" class="form-cat">
+        <div id="ing-form-campos"></div>
+        <p id="ing-modal-cat-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" data-close="ing-modal-categoria">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-ingreso" id="ing-btn-cat-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="ing-modal-editar-ingreso" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Editar ingreso</h3>
+        <button type="button" class="btn-close" data-close="ing-modal-editar-ingreso" aria-label="Cerrar">×</button>
+      </header>
+      <form id="ing-form-editar-ingreso" class="form-cat">
+        <input type="hidden" id="ing-edit-ingreso-id" />
+        <label>Fecha<input type="date" id="ing-edit-ingreso-fecha" required /></label>
+        <label>Monto<input type="number" id="ing-edit-ingreso-monto" min="0" step="0.01" required /></label>
+        <label>Moneda
+          <select id="ing-edit-ingreso-moneda">
+            <option value="PEN">PEN (soles)</option>
+            <option value="USD">USD (dólares)</option>
+          </select>
+        </label>
+        <label>Descripción<input type="text" id="ing-edit-ingreso-descripcion" maxlength="200" /></label>
+        <fieldset class="move-categoria-block">
+          <legend>Mover a otro tipo</legend>
+          <p class="move-categoria-actual">Actual: <strong id="ing-edit-ingreso-categoria-actual">—</strong></p>
+          <label for="ing-edit-ingreso-mover-categoria">Destino</label>
+          <div class="move-categoria-row">
+            <select id="ing-edit-ingreso-mover-categoria" required></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="ing-btn-mover-ingreso" disabled>Mover</button>
+          </div>
+        </fieldset>
+        <p id="ing-editar-ingreso-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-danger" id="ing-btn-eliminar-ingreso">Eliminar</button>
+          <button type="button" class="btn btn-secondary" data-close="ing-modal-editar-ingreso">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-ingreso" id="ing-btn-guardar-ingreso">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="ing-modal-meta-cat" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Ingreso esperado por tipo</h3>
+        <button type="button" class="btn-close" data-close="ing-modal-meta-cat" aria-label="Cerrar">×</button>
+      </header>
+      <p class="modal-meta">Tipo: <strong id="ing-modal-meta-cat-nombre">—</strong></p>
+      <form id="ing-form-meta-cat" class="form-cat">
+        <label>Ingreso esperado del mes (PEN)
+          <input type="number" id="ing-input-meta-cat" min="0" step="0.01" placeholder="Ej. 3500" />
+        </label>
+        <p id="ing-meta-cat-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" id="ing-btn-quitar-meta-cat">Quitar esperado</button>
+          <button type="button" class="btn btn-secondary" data-close="ing-modal-meta-cat">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-ingreso">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="ing-modal-renombrar" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Renombrar tipo de ingreso</h3>
+        <button type="button" class="btn-close" data-close="ing-modal-renombrar" aria-label="Cerrar">×</button>
+      </header>
+      <p class="modal-meta">Actual: <strong id="ing-modal-renombrar-actual">—</strong></p>
+      <form id="ing-form-renombrar" class="form-cat">
+        <label>Nuevo nombre<input type="text" id="ing-input-renombrar-nueva" maxlength="40" required /></label>
+        <p id="ing-renombrar-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" data-close="ing-modal-renombrar">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-ingreso" id="ing-btn-renombrar-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Exportar Excel -->
+  <dialog id="modal-export" class="modal">
+    <div class="modal-inner">
+      <header class="modal-header">
+        <h3>Exportar reporte Excel</h3>
+        <button type="button" class="btn-close" data-close="modal-export" aria-label="Cerrar">×</button>
+      </header>
+      <form id="form-export" class="form-cat">
+        <label for="export-period">Periodo del reporte
+          <select id="export-period" required></select>
+        </label>
+        <p class="hint">Incluye balance, gastos, ingresos, presupuestos, ingresos esperados y gráficas del periodo elegido.</p>
+        <p id="export-modal-status" class="ingest-status hidden" role="status"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" data-close="modal-export">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-export-confirm">Generar y guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  </div><!-- #app-shell -->
+
+  <canvas id="export-chart-canvas" width="800" height="500" class="export-chart-canvas" aria-hidden="true"></canvas>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-functions-compat.js"></script>
+  <script src="firestore-db.js?v=18"></script>
+  <script src="gemini-parse.js?v=18"></script>
+  <script src="auth.js?v=18"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="excel-export.js?v=18"></script>
+  <script src="period-nav.js?v=18"></script>
+  <script src="estatus.js?v=18"></script>
+  <script src="ingest.js?v=18"></script>
+  <script src="ingest-ingresos.js?v=18"></script>
+  <script src="ingresos-app.js?v=18"></script>
+  <script src="app.js?v=18"></script>
+</body>
+</html>
